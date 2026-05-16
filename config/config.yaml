@@ -1,0 +1,4 @@
+data_dir :
+  train : "data/train.csv"
+  test : "data/test.csv"
+  laws : "data/laws_de.csv"

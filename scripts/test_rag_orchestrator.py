@@ -1,0 +1,3 @@
+from agentic.pipeline.rag_orchestrator import run_production_chunking_pipeline
+
+run_production_chunking_pipeline()
