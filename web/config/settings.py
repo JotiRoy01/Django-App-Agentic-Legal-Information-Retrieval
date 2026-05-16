@@ -11,10 +11,21 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
+import sys
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Project root = Django-App-Agentic-Retrieval-Competition/
+PROJECT_ROOT = BASE_DIR.parent
+
+# Add src/ to sys.path so Django can import my ML modules directly
+sys.path.insert(0, str(PROJECT_ROOT / "src"))
+
+# Environment
+load_dotenv(PROJECT_ROOT / ".env")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
