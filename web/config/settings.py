@@ -25,7 +25,7 @@ PROJECT_ROOT = BASE_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 # Environment
-load_dotenv(PROJECT_ROOT / ".env")
+load_dotenv(PROJECT_ROOT / "django_rag")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rag_web',
 ]
 
 MIDDLEWARE = [

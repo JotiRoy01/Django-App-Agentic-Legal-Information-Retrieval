@@ -12,7 +12,6 @@ ipykernel
 huggingface-hub
 pyarrow
 fastparquet
-install 
 django 
 celery 
 redis 
