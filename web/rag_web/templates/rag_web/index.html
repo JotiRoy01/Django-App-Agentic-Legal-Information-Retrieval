@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Legal RAG</title>
+</head>
+<body>
+
+    <h1>Legal Assistant</h1>
+
+    <form method="POST">
+
+        {% csrf_token %}
+
+        <input
+            type="text"
+            name="question"
+            placeholder="Ask legal question"
+            style="width:400px;"
+        >
+
+        <button type="submit">
+            Ask
+        </button>
+
+    </form>
+
+    {% if response %}
+        <hr>
+        <h3>Response:</h3>
+
+        <p>{{ response }}</p>
+    {% endif %}
+
+</body>
+</html>
