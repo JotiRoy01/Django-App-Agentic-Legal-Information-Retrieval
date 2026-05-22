@@ -96,41 +96,73 @@ def results(request, task_id):
 
 @require_GET
 def evaluation(request):
-    eval_dir = getattr(settings, "ARTIFACTS_DIR", None)
+    artifacts_dir = getattr(settings, "ARTIFACTS_DIR", None)
     summary = {}
+    run_metadata = {}
     chart_labels = chart_f1 = chart_precision = chart_recall = []
-    worst_queries = missed_citations = per_query_data = []
+    worst_queries = best_queries = missed_citations = wrong_citations = per_query_data = []
 
-    if eval_dir:
+    if artifacts_dir:
         from pathlib import Path
-        eval_dir = Path(eval_dir) / "evaluation"
+        import pandas as pd
+
+        artifacts_dir = Path(artifacts_dir)
+        eval_dir = artifacts_dir / "evaluation"
+
+        # ── Evaluation summary ────────────────────────────────────────────
         summary_path = eval_dir / "evaluation_summary.json"
         if summary_path.exists():
             with open(summary_path) as f:
                 summary = json.load(f)
+
+        # ── Per-query results + chart data ────────────────────────────────
         per_query_path = eval_dir / "per_query_results.csv"
         if per_query_path.exists():
-            import pandas as pd
             df = pd.read_csv(per_query_path)
             per_query_data  = df.to_dict("records")
             chart_labels    = df["query_id"].astype(str).tolist()
             chart_f1        = df["f1"].round(3).tolist()
             chart_precision = df["precision"].round(3).tolist()
             chart_recall    = df["recall"].round(3).tolist()
+
+        # ── Worst queries ─────────────────────────────────────────────────
         worst_path = eval_dir / "worst_queries.csv"
         if worst_path.exists():
-            import pandas as pd
             worst_queries = pd.read_csv(worst_path).to_dict("records")
+
+        # ── Best queries ──────────────────────────────────────────────────
+        best_path = eval_dir / "best_queries.csv"
+        if best_path.exists():
+            best_queries = pd.read_csv(best_path).to_dict("records")
+
+        # ── Most missed citations ─────────────────────────────────────────
         missed_path = eval_dir / "most_missed_citations.csv"
         if missed_path.exists():
-            import pandas as pd
-            missed_citations = pd.read_csv(missed_path).head(10).to_dict("records")
+            mdf = pd.read_csv(missed_path)
+            if not mdf.empty:
+                missed_citations = mdf.head(15).to_dict("records")
+
+        # ── Most wrong citations ──────────────────────────────────────────
+        wrong_path = eval_dir / "most_wrong_citations.csv"
+        if wrong_path.exists():
+            wdf = pd.read_csv(wrong_path)
+            if not wdf.empty:
+                wrong_citations = wdf.head(15).to_dict("records")
+
+        # ── Run metadata (pipeline run info) ──────────────────────────────
+        meta_path = artifacts_dir / "run_metadata.json"
+        if meta_path.exists():
+            with open(meta_path) as f:
+                run_metadata = json.load(f)
 
     return render(request, "rag_web/evaluation.html", {
         "summary":          summary,
+        "run_metadata":     run_metadata,
         "per_query_data":   per_query_data,
         "worst_queries":    worst_queries,
+        "best_queries":     best_queries,
         "missed_citations": missed_citations,
+        "wrong_citations":  wrong_citations,
         "chart_labels":     json.dumps(chart_labels),
         "chart_f1":         json.dumps(chart_f1),
         "chart_precision":  json.dumps(chart_precision),

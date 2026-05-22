@@ -48,6 +48,12 @@ net start Redis
 ```bash
 docker start my-redis
 ```
+# Or remove the redis from the docker then
+```bash
+docker stop my-redis
+docker rm my-redis
+docker run -d -p 6379:6379 --name my-redis redis
+```
 # Activate conda environment in antigravity
 ```bash
 source /c/anaconda3/etc/profile.d/conda.sh

@@ -202,7 +202,7 @@ DATA_DIR      = Path(os.getenv("DATA_DIR", str(PROJECT_ROOT / "data")))
 RAG_HYBRID_TOP_K         = int(os.getenv("RAG_HYBRID_TOP_K", "100"))
 RAG_RERANKER_TOP_K       = int(os.getenv("RAG_RERANKER_TOP_K", "10"))
 RAG_USE_STAGE2_RERANKER  = os.getenv("RAG_USE_STAGE2_RERANKER", "True") == "True"
-RAG_DEV_MODE             = os.getenv("RAG_DEV_MODE", "False") == "True"
+RAG_DEV_MODE             = os.getenv("RAG_DEV_MODE", "True") == "True"
 RAG_DEV_ROWS             = int(os.getenv("RAG_DEV_ROWS", "500"))
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

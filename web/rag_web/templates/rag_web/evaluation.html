@@ -1,44 +1,1046 @@
 <!DOCTYPE html>
-<html>
-<head><title>Evaluation — Legal RAG</title>
-<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-<style>
-body { font-family: sans-serif; max-width: 900px; margin: 40px auto; background: #0f172a; color: #e2e8f0; padding: 0 20px; }
-h1 { color: #818cf8; }
-a { color: #6366f1; }
-.cards { display: flex; gap: 12px; flex-wrap: wrap; margin: 20px 0; }
-.card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 16px 24px; min-width: 120px; }
-.card .n { font-size: 28px; font-weight: bold; }
-.chart { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 16px; margin: 16px 0; }
-</style>
-</head>
-<body>
-<a href="/">← Home</a>
-<h1>Evaluation Dashboard</h1>
+<html lang="en">
 
-{% if has_eval_data %}
-<div class="cards">
-    <div class="card"><div class="n" style="color:#818cf8">{{ summary.macro_f1 }}</div><div style="font-size:12px;color:#64748b">Macro F1</div></div>
-    <div class="card"><div class="n" style="color:#93c5fd">{{ summary.macro_precision }}</div><div style="font-size:12px;color:#64748b">Precision</div></div>
-    <div class="card"><div class="n" style="color:#86efac">{{ summary.macro_recall }}</div><div style="font-size:12px;color:#64748b">Recall</div></div>
-    <div class="card"><div class="n" style="color:#d8b4fe">{{ summary.map_at_k }}</div><div style="font-size:12px;color:#64748b">MAP@10</div></div>
-    <div class="card"><div class="n" style="color:#fbbf24">{{ summary.mrr }}</div><div style="font-size:12px;color:#64748b">MRR</div></div>
-</div>
-<div class="chart"><div id="f1chart" style="height:280px;"></div></div>
-<script>
-Plotly.newPlot("f1chart", [{
-    x: {{ chart_labels|safe }}, y: {{ chart_f1|safe }},
-    type: "bar",
-    marker: { color: {{ chart_f1|safe }}.map(v => v >= 0.7 ? "#22c55e" : v >= 0.4 ? "#eab308" : "#ef4444") }
-}], {
-    paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)",
-    font: { color: "#9ca3af" }, title: { text: "F1 per Query", font: { color: "#e2e8f0" } },
-    xaxis: { gridcolor: "#1f2937" }, yaxis: { gridcolor: "#1f2937", range: [0, 1] },
-    margin: { t: 40, b: 40, l: 40, r: 10 }
-}, { responsive: true, displayModeBar: false });
-</script>
-{% else %}
-<p style="color:#64748b;">No evaluation data yet. Run <code>run_evaluation()</code> first.</p>
-{% endif %}
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Evaluation Dashboard — Legal RAG</title>
+    <meta name="description" content="Evaluation metrics and analysis for the Legal RAG pipeline." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: #060918;
+            color: #c8cdd8;
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        /* ── Ambient glow background ─────────────────────────────────── */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -40%;
+            left: -20%;
+            width: 70%;
+            height: 70%;
+            background: radial-gradient(ellipse, rgba(99, 102, 241, 0.08) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            bottom: -30%;
+            right: -15%;
+            width: 60%;
+            height: 60%;
+            background: radial-gradient(ellipse, rgba(168, 85, 247, 0.06) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 24px 60px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ── Navigation ──────────────────────────────────────────────── */
+        .nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 36px;
+        }
+
+        .nav a {
+            color: #818cf8;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav a:hover {
+            color: #a5b4fc;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 20px;
+        }
+
+        /* ── Page header ─────────────────────────────────────────────── */
+        .page-header {
+            margin-bottom: 40px;
+        }
+
+        .page-header h1 {
+            font-size: 32px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #818cf8 0%, #a78bfa 50%, #c084fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 6px;
+            letter-spacing: -0.5px;
+        }
+
+        .page-header p {
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        /* ── Glass card base ─────────────────────────────────────────── */
+        .glass {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(99, 102, 241, 0.12);
+            border-radius: 16px;
+        }
+
+        /* ── Metric cards row ────────────────────────────────────────── */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .metric-card {
+            padding: 20px 22px;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.25s ease, border-color 0.25s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(99, 102, 241, 0.3);
+        }
+
+        .metric-card .label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #64748b;
+            margin-bottom: 8px;
+        }
+
+        .metric-card .value {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .metric-card .sub {
+            font-size: 11px;
+            color: #475569;
+            margin-top: 4px;
+        }
+
+        /* Accent colors for different metric cards */
+        .metric-card.indigo .value {
+            color: #818cf8;
+        }
+
+        .metric-card.blue .value {
+            color: #60a5fa;
+        }
+
+        .metric-card.green .value {
+            color: #4ade80;
+        }
+
+        .metric-card.purple .value {
+            color: #c084fc;
+        }
+
+        .metric-card.amber .value {
+            color: #fbbf24;
+        }
+
+        .metric-card.rose .value {
+            color: #fb7185;
+        }
+
+        .metric-card.cyan .value {
+            color: #22d3ee;
+        }
+
+        /* Glow accent for card */
+        .metric-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            border-radius: 16px 16px 0 0;
+        }
+
+        .metric-card.indigo::after {
+            background: linear-gradient(90deg, #818cf8, transparent);
+        }
+
+        .metric-card.blue::after {
+            background: linear-gradient(90deg, #60a5fa, transparent);
+        }
+
+        .metric-card.green::after {
+            background: linear-gradient(90deg, #4ade80, transparent);
+        }
+
+        .metric-card.purple::after {
+            background: linear-gradient(90deg, #c084fc, transparent);
+        }
+
+        .metric-card.amber::after {
+            background: linear-gradient(90deg, #fbbf24, transparent);
+        }
+
+        .metric-card.rose::after {
+            background: linear-gradient(90deg, #fb7185, transparent);
+        }
+
+        .metric-card.cyan::after {
+            background: linear-gradient(90deg, #22d3ee, transparent);
+        }
+
+        /* ── Section titles ──────────────────────────────────────────── */
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #e2e8f0;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title .icon {
+            font-size: 20px;
+        }
+
+        /* ── Charts section ──────────────────────────────────────────── */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 36px;
+        }
+
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .chart-card {
+            padding: 20px;
+        }
+
+        .chart-card h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #94a3b8;
+            margin-bottom: 12px;
+        }
+
+        /* ── Table styles ────────────────────────────────────────────── */
+        .table-wrap {
+            overflow-x: auto;
+            margin-bottom: 36px;
+        }
+
+        .table-wrap .glass {
+            padding: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        thead th {
+            text-align: left;
+            padding: 10px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+            color: #64748b;
+            border-bottom: 1px solid rgba(99, 102, 241, 0.15);
+            white-space: nowrap;
+        }
+
+        tbody td {
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(51, 65, 85, 0.4);
+            color: #c8cdd8;
+            vertical-align: top;
+        }
+
+        tbody tr {
+            transition: background 0.15s;
+        }
+
+        tbody tr:hover {
+            background: rgba(99, 102, 241, 0.06);
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* ── Score bar (inline bar indicator) ────────────────────────── */
+        .score-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .score-bar .bar {
+            height: 6px;
+            border-radius: 3px;
+            min-width: 2px;
+        }
+
+        .score-bar .bar.green {
+            background: linear-gradient(90deg, #22c55e, #4ade80);
+        }
+
+        .score-bar .bar.amber {
+            background: linear-gradient(90deg, #f59e0b, #fbbf24);
+        }
+
+        .score-bar .bar.red {
+            background: linear-gradient(90deg, #ef4444, #f87171);
+        }
+
+        /* ── Badge ───────────────────────────────────────────────────── */
+        .badge {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 999px;
+            letter-spacing: 0.3px;
+        }
+
+        .badge-success {
+            background: rgba(34, 197, 94, 0.15);
+            color: #4ade80;
+        }
+
+        .badge-warning {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+        }
+
+        .badge-danger {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+        }
+
+        .badge-info {
+            background: rgba(99, 102, 241, 0.15);
+            color: #a5b4fc;
+        }
+
+        /* ── Citation cell ───────────────────────────────────────────── */
+        .citation-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .citation-tag {
+            font-size: 11px;
+            background: rgba(99, 102, 241, 0.1);
+            color: #a5b4fc;
+            padding: 2px 7px;
+            border-radius: 4px;
+            border: 1px solid rgba(99, 102, 241, 0.15);
+        }
+
+        /* ── Wrong citations bar ─────────────────────────────────────── */
+        .wrong-bar-bg {
+            width: 100%;
+            height: 8px;
+            background: rgba(51, 65, 85, 0.5);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+
+        .wrong-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            background: linear-gradient(90deg, #f87171, #fb923c);
+        }
+
+        /* ── Empty state ─────────────────────────────────────────────── */
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+        }
+
+        .empty-state .icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .empty-state h2 {
+            font-size: 20px;
+            font-weight: 700;
+            color: #818cf8;
+            margin-bottom: 8px;
+        }
+
+        .empty-state p {
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        .empty-state code {
+            background: rgba(99, 102, 241, 0.1);
+            color: #a5b4fc;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        /* ── Pipeline info bar ───────────────────────────────────────── */
+        .pipeline-info {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            padding: 16px 22px;
+            margin-bottom: 32px;
+            font-size: 13px;
+        }
+
+        .pipeline-info .info-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .pipeline-info .info-label {
+            color: #64748b;
+        }
+
+        .pipeline-info .info-value {
+            color: #e2e8f0;
+            font-weight: 600;
+        }
+
+        /* ── Tabs ────────────────────────────────────────────────────── */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 20px;
+            background: rgba(15, 23, 42, 0.5);
+            padding: 4px;
+            border-radius: 10px;
+            border: 1px solid rgba(51, 65, 85, 0.4);
+            width: fit-content;
+        }
+
+        .tab-btn {
+            padding: 8px 18px;
+            border-radius: 8px;
+            border: none;
+            background: transparent;
+            color: #64748b;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .tab-btn:hover {
+            color: #c8cdd8;
+        }
+
+        .tab-btn.active {
+            background: rgba(99, 102, 241, 0.15);
+            color: #a5b4fc;
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        /* ── Query text (truncated) ──────────────────────────────────── */
+        .query-text {
+            font-size: 12px;
+            color: #94a3b8;
+            max-width: 300px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* ── Animations ──────────────────────────────────────────────── */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(16px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-in {
+            animation: fadeInUp 0.5s ease both;
+        }
+
+        .delay-1 {
+            animation-delay: 0.05s;
+        }
+
+        .delay-2 {
+            animation-delay: 0.1s;
+        }
+
+        .delay-3 {
+            animation-delay: 0.15s;
+        }
+
+        .delay-4 {
+            animation-delay: 0.2s;
+        }
+
+        .delay-5 {
+            animation-delay: 0.25s;
+        }
+
+        .delay-6 {
+            animation-delay: 0.3s;
+        }
+
+        .delay-7 {
+            animation-delay: 0.35s;
+        }
+
+        /* ── Scrollbar ───────────────────────────────────────────────── */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+
+        <!-- ── Navigation ─────────────────────────────────────────── -->
+        <nav class="nav animate-in">
+            <a href="/">← Back to Home</a>
+            <div class="nav-links">
+                <a href="/history/">History</a>
+                <a href="/evaluation/" style="color: #a5b4fc;">Evaluation</a>
+            </div>
+        </nav>
+
+        <!-- ── Page Header ────────────────────────────────────────── -->
+        <div class="page-header animate-in delay-1">
+            <h1>📊 Evaluation Dashboard</h1>
+            <p>Pipeline performance metrics and per-query analysis</p>
+        </div>
+
+        {% if has_eval_data %}
+
+        <!-- ── Pipeline Run Info ──────────────────────────────────── -->
+        {% if run_metadata %}
+        <div class="glass pipeline-info animate-in delay-1">
+            {% if run_metadata.timestamp %}
+            <div class="info-item">
+                <span class="info-label">Run Date:</span>
+                <span class="info-value">{{ run_metadata.timestamp }}</span>
+            </div>
+            {% endif %}
+            {% if run_metadata.total_queries %}
+            <div class="info-item">
+                <span class="info-label">Queries:</span>
+                <span class="info-value">{{ run_metadata.total_queries }}</span>
+            </div>
+            {% endif %}
+            {% if run_metadata.total_elapsed_s %}
+            <div class="info-item">
+                <span class="info-label">Total Time:</span>
+                <span class="info-value">{{ run_metadata.total_elapsed_s }}s</span>
+            </div>
+            {% endif %}
+            {% if run_metadata.avg_per_query_s %}
+            <div class="info-item">
+                <span class="info-label">Avg/Query:</span>
+                <span class="info-value">{{ run_metadata.avg_per_query_s }}s</span>
+            </div>
+            {% endif %}
+            {% if run_metadata.hybrid_top_k %}
+            <div class="info-item">
+                <span class="info-label">Hybrid Top-K:</span>
+                <span class="info-value">{{ run_metadata.hybrid_top_k }}</span>
+            </div>
+            {% endif %}
+            {% if run_metadata.reranker_top_k %}
+            <div class="info-item">
+                <span class="info-label">Reranker Top-K:</span>
+                <span class="info-value">{{ run_metadata.reranker_top_k }}</span>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- ── Metric Cards ───────────────────────────────────────── -->
+        <div class="metrics-grid">
+            <div class="glass metric-card indigo animate-in delay-1">
+                <div class="label">Macro F1</div>
+                <div class="value">{{ summary.macro_f1 }}</div>
+                <div class="sub">Harmonic mean</div>
+            </div>
+            <div class="glass metric-card blue animate-in delay-2">
+                <div class="label">Precision</div>
+                <div class="value">{{ summary.macro_precision }}</div>
+                <div class="sub">Correct / predicted</div>
+            </div>
+            <div class="glass metric-card green animate-in delay-3">
+                <div class="label">Recall</div>
+                <div class="value">{{ summary.macro_recall }}</div>
+                <div class="sub">Correct / gold</div>
+            </div>
+            <div class="glass metric-card purple animate-in delay-4">
+                <div class="label">MAP@{{ summary.k }}</div>
+                <div class="value">{{ summary.map_at_k }}</div>
+                <div class="sub">Mean avg precision</div>
+            </div>
+            <div class="glass metric-card amber animate-in delay-5">
+                <div class="label">MRR</div>
+                <div class="value">{{ summary.mrr }}</div>
+                <div class="sub">Mean reciprocal rank</div>
+            </div>
+            <div class="glass metric-card cyan animate-in delay-6">
+                <div class="label">Hit Rate@{{ summary.k }}</div>
+                <div class="value">{{ summary.hit_rate_at_k }}</div>
+                <div class="sub">≥1 relevant in top-{{ summary.k }}</div>
+            </div>
+            <div class="glass metric-card rose animate-in delay-7">
+                <div class="label">Query Stats</div>
+                <div class="value">{{ summary.perfect_queries }}/{{ summary.total_queries }}</div>
+                <div class="sub">Perfect · {{ summary.zero_f1_queries }} zero F1</div>
+            </div>
+        </div>
+
+        <!-- ── Charts ─────────────────────────────────────────────── -->
+        <div class="section-title animate-in delay-3">
+            <span class="icon">📈</span> Performance Charts
+        </div>
+        <div class="charts-grid animate-in delay-4">
+            <div class="glass chart-card">
+                <h3>Precision / Recall / F1 per Query</h3>
+                <div id="barChart" style="height: 320px;"></div>
+            </div>
+            <div class="glass chart-card">
+                <h3>Aggregate Radar</h3>
+                <div id="radarChart" style="height: 320px;"></div>
+            </div>
+        </div>
+
+        <!-- ── Tabs for detailed tables ───────────────────────────── -->
+        <div class="section-title animate-in delay-4">
+            <span class="icon">🔍</span> Detailed Analysis
+        </div>
+
+        <div class="tabs animate-in delay-4">
+            <button class="tab-btn active" onclick="switchTab('perquery')">Per-Query</button>
+            <button class="tab-btn" onclick="switchTab('worst')">Worst Queries</button>
+            <button class="tab-btn" onclick="switchTab('best')">Best Queries</button>
+            <button class="tab-btn" onclick="switchTab('wrong')">Wrong Citations</button>
+            <button class="tab-btn" onclick="switchTab('missed')">Missed Citations</button>
+        </div>
+
+        <!-- ── Tab: Per-Query Results ─────────────────────────────── -->
+        <div class="tab-panel active" id="panel-perquery">
+            <div class="table-wrap animate-in delay-5">
+                <div class="glass" style="padding: 20px;">
+                    {% if per_query_data %}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Query ID</th>
+                                <th>Precision</th>
+                                <th>Recall</th>
+                                <th>F1</th>
+                                <th>AP</th>
+                                <th>RR</th>
+                                <th>Hit@K</th>
+                                <th>Predicted</th>
+                                <th>Gold</th>
+                                <th>TP</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in per_query_data %}
+                            <tr>
+                                <td><span class="badge badge-info">Q{{ row.query_id }}</span></td>
+                                <td>
+                                    <div class="score-bar">
+                                        <div class="bar {% if row.precision >= 0.7 %}green{% elif row.precision >= 0.4 %}amber{% else %}red{% endif %}"
+                                            style="width: {{ row.precision|floatformat:0 }}%;max-width:60px;"></div>
+                                        <span>{{ row.precision|floatformat:3 }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="score-bar">
+                                        <div class="bar {% if row.recall >= 0.7 %}green{% elif row.recall >= 0.4 %}amber{% else %}red{% endif %}"
+                                            style="width: {{ row.recall|floatformat:0 }}%;max-width:60px;"></div>
+                                        <span>{{ row.recall|floatformat:3 }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="score-bar">
+                                        <div class="bar {% if row.f1 >= 0.7 %}green{% elif row.f1 >= 0.4 %}amber{% else %}red{% endif %}"
+                                            style="width: {{ row.f1|floatformat:0 }}%;max-width:60px;"></div>
+                                        <span>{{ row.f1|floatformat:3 }}</span>
+                                    </div>
+                                </td>
+                                <td>{{ row.average_precision|floatformat:3 }}</td>
+                                <td>{{ row.reciprocal_rank|floatformat:3 }}</td>
+                                <td>
+                                    {% if row.hit_at_k %}
+                                    <span class="badge badge-success">✓</span>
+                                    {% else %}
+                                    <span class="badge badge-danger">✗</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ row.n_predicted }}</td>
+                                <td>{{ row.n_gold }}</td>
+                                <td>{{ row.n_true_positives }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p style="color:#64748b; text-align:center; padding:20px;">No per-query data available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Tab: Worst Queries ─────────────────────────────────── -->
+        <div class="tab-panel" id="panel-worst">
+            <div class="table-wrap">
+                <div class="glass" style="padding: 20px;">
+                    {% if worst_queries %}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Query ID</th>
+                                <th>F1</th>
+                                <th>Precision</th>
+                                <th>Recall</th>
+                                <th>Predicted</th>
+                                <th>Gold</th>
+                                <th>False Positives</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in worst_queries %}
+                            <tr>
+                                <td><span class="badge badge-danger">Q{{ row.query_id }}</span></td>
+                                <td style="color: #f87171; font-weight: 600;">{{ row.f1|floatformat:3 }}</td>
+                                <td>{{ row.precision|floatformat:3 }}</td>
+                                <td>{{ row.recall|floatformat:3 }}</td>
+                                <td>{{ row.n_predicted }}</td>
+                                <td>{{ row.n_gold }}</td>
+                                <td>
+                                    <div class="citation-list">
+                                        {% for c in row.false_positives|default:""|truncatechars:120 %}
+                                        {% endfor %}
+                                        <span class="citation-tag">{{ row.false_positives|default:"—"|truncatechars:120 }}</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p style="color:#64748b; text-align:center; padding:20px;">No worst query data available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Tab: Best Queries ──────────────────────────────────── -->
+        <div class="tab-panel" id="panel-best">
+            <div class="table-wrap">
+                <div class="glass" style="padding: 20px;">
+                    {% if best_queries %}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Query ID</th>
+                                <th>F1</th>
+                                <th>Precision</th>
+                                <th>Recall</th>
+                                <th>Predicted</th>
+                                <th>Gold</th>
+                                <th>True Positives</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in best_queries %}
+                            <tr>
+                                <td><span class="badge badge-success">Q{{ row.query_id }}</span></td>
+                                <td style="color: #4ade80; font-weight: 600;">{{ row.f1|floatformat:3 }}</td>
+                                <td>{{ row.precision|floatformat:3 }}</td>
+                                <td>{{ row.recall|floatformat:3 }}</td>
+                                <td>{{ row.n_predicted }}</td>
+                                <td>{{ row.n_gold }}</td>
+                                <td>
+                                    <span class="citation-tag">{{ row.true_positives|default:"—"|truncatechars:120 }}</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p style="color:#64748b; text-align:center; padding:20px;">No best query data available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Tab: Wrong Citations ───────────────────────────────── -->
+        <div class="tab-panel" id="panel-wrong">
+            <div class="table-wrap">
+                <div class="glass" style="padding: 20px;">
+                    {% if wrong_citations %}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width:60%;">Citation</th>
+                                <th>Wrong Count</th>
+                                <th style="width:25%;">Frequency</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in wrong_citations %}
+                            <tr>
+                                <td>
+                                    <span class="citation-tag">{{ row.citation }}</span>
+                                </td>
+                                <td style="font-weight:600; color: #fb923c;">{{ row.wrong_count }}</td>
+                                <td>
+                                    <div class="wrong-bar-bg">
+                                        <div class="wrong-bar-fill"
+                                            style="width: {% widthratio row.wrong_count 5 100 %}%;"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p style="color:#64748b; text-align:center; padding:20px;">No wrong citation data available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Tab: Missed Citations ──────────────────────────────── -->
+        <div class="tab-panel" id="panel-missed">
+            <div class="table-wrap">
+                <div class="glass" style="padding: 20px;">
+                    {% if missed_citations %}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width:60%;">Citation</th>
+                                <th>Missed Count</th>
+                                <th style="width:25%;">Frequency</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in missed_citations %}
+                            <tr>
+                                <td>
+                                    <span class="citation-tag">{{ row.citation }}</span>
+                                </td>
+                                <td style="font-weight:600; color: #f87171;">{{ row.missed_count }}</td>
+                                <td>
+                                    <div class="wrong-bar-bg">
+                                        <div class="wrong-bar-fill"
+                                            style="width: {% widthratio row.missed_count 5 100 %}%; background: linear-gradient(90deg, #ef4444, #f87171);">
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p style="color:#64748b; text-align:center; padding:20px;">No missed citation data available — this
+                        means all gold citations were found (or no gold data exists).</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% else %}
+        <!-- ── Empty state ────────────────────────────────────────── -->
+        <div class="glass empty-state animate-in delay-2">
+            <div class="icon">📭</div>
+            <h2>No Evaluation Data Yet</h2>
+            <p>Run the evaluation script first to generate metrics:</p>
+            <br />
+            <code>python scripts/run_evaluation_report.py</code>
+        </div>
+        {% endif %}
+
+    </div>
+
+    <!-- ── JavaScript ─────────────────────────────────────────────── -->
+    <script>
+        // ── Tab switching ────────────────────────────────────────────
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById('panel-' + tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        {% if has_eval_data %}
+        // ── Bar chart: P / R / F1 per query ──────────────────────────
+        const labels = {{ chart_labels | safe }};
+        const f1Data = {{ chart_f1 | safe }};
+        const precData = {{ chart_precision | safe }};
+        const recData = {{ chart_recall | safe }};
+
+        const barTraces = [
+            {
+                x: labels, y: precData, name: 'Precision', type: 'bar',
+                marker: { color: 'rgba(96, 165, 250, 0.8)', line: { color: 'rgba(96, 165, 250, 1)', width: 1 } }
+            },
+            {
+                x: labels, y: recData, name: 'Recall', type: 'bar',
+                marker: { color: 'rgba(74, 222, 128, 0.8)', line: { color: 'rgba(74, 222, 128, 1)', width: 1 } }
+            },
+            {
+                x: labels, y: f1Data, name: 'F1', type: 'bar',
+                marker: { color: 'rgba(129, 140, 248, 0.8)', line: { color: 'rgba(129, 140, 248, 1)', width: 1 } }
+            }
+        ];
+
+        const darkLayout = {
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            font: { color: '#9ca3af', family: 'Inter' },
+            barmode: 'group',
+            xaxis: {
+                gridcolor: 'rgba(51,65,85,0.4)',
+                title: { text: 'Query ID', font: { size: 11 } }
+            },
+            yaxis: {
+                gridcolor: 'rgba(51,65,85,0.4)',
+                range: [0, 1.05],
+                title: { text: 'Score', font: { size: 11 } }
+            },
+            legend: {
+                orientation: 'h', y: 1.12, x: 0.5, xanchor: 'center',
+                font: { size: 11 }
+            },
+            margin: { t: 30, b: 50, l: 45, r: 10 }
+        };
+
+        Plotly.newPlot('barChart', barTraces, darkLayout, { responsive: true, displayModeBar: false });
+
+        // ── Radar chart: aggregate metrics ───────────────────────────
+        const radarData = [{
+            type: 'scatterpolar',
+            r: [
+                {{ summary.macro_f1 }},
+                {{ summary.macro_precision }},
+                {{ summary.macro_recall }},
+                {{ summary.map_at_k }},
+                {{ summary.mrr }},
+                {{ summary.hit_rate_at_k }},
+                {{ summary.macro_f1 }}
+            ],
+            theta: ['F1', 'Precision', 'Recall', 'MAP@K', 'MRR', 'Hit Rate', 'F1'],
+            fill: 'toself',
+            fillcolor: 'rgba(129, 140, 248, 0.15)',
+            line: { color: '#818cf8', width: 2 },
+            marker: { color: '#a5b4fc', size: 6 },
+            name: 'Current Run'
+        }];
+
+        const radarLayout = {
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            font: { color: '#9ca3af', family: 'Inter', size: 11 },
+            polar: {
+                bgcolor: 'rgba(0,0,0,0)',
+                angularaxis: {
+                    linecolor: 'rgba(51,65,85,0.4)',
+                    gridcolor: 'rgba(51,65,85,0.3)',
+                },
+                radialaxis: {
+                    linecolor: 'rgba(51,65,85,0.4)',
+                    gridcolor: 'rgba(51,65,85,0.3)',
+                    range: [0, 1],
+                    tickfont: { size: 10 }
+                }
+            },
+            showlegend: false,
+            margin: { t: 30, b: 30, l: 60, r: 60 }
+        };
+
+        Plotly.newPlot('radarChart', radarData, radarLayout, { responsive: true, displayModeBar: false });
+        {% endif %}
+    </script>
 </body>
+
 </html>
