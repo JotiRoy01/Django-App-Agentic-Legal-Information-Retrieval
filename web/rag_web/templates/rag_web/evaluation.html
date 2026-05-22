@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head><title>Evaluation — Legal RAG</title>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<style>
+body { font-family: sans-serif; max-width: 900px; margin: 40px auto; background: #0f172a; color: #e2e8f0; padding: 0 20px; }
+h1 { color: #818cf8; }
+a { color: #6366f1; }
+.cards { display: flex; gap: 12px; flex-wrap: wrap; margin: 20px 0; }
+.card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 16px 24px; min-width: 120px; }
+.card .n { font-size: 28px; font-weight: bold; }
+.chart { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 16px; margin: 16px 0; }
+</style>
+</head>
+<body>
+<a href="/">← Home</a>
+<h1>Evaluation Dashboard</h1>
+
+{% if has_eval_data %}
+<div class="cards">
+    <div class="card"><div class="n" style="color:#818cf8">{{ summary.macro_f1 }}</div><div style="font-size:12px;color:#64748b">Macro F1</div></div>
+    <div class="card"><div class="n" style="color:#93c5fd">{{ summary.macro_precision }}</div><div style="font-size:12px;color:#64748b">Precision</div></div>
+    <div class="card"><div class="n" style="color:#86efac">{{ summary.macro_recall }}</div><div style="font-size:12px;color:#64748b">Recall</div></div>
+    <div class="card"><div class="n" style="color:#d8b4fe">{{ summary.map_at_k }}</div><div style="font-size:12px;color:#64748b">MAP@10</div></div>
+    <div class="card"><div class="n" style="color:#fbbf24">{{ summary.mrr }}</div><div style="font-size:12px;color:#64748b">MRR</div></div>
+</div>
+<div class="chart"><div id="f1chart" style="height:280px;"></div></div>
+<script>
+Plotly.newPlot("f1chart", [{
+    x: {{ chart_labels|safe }}, y: {{ chart_f1|safe }},
+    type: "bar",
+    marker: { color: {{ chart_f1|safe }}.map(v => v >= 0.7 ? "#22c55e" : v >= 0.4 ? "#eab308" : "#ef4444") }
+}], {
+    paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)",
+    font: { color: "#9ca3af" }, title: { text: "F1 per Query", font: { color: "#e2e8f0" } },
+    xaxis: { gridcolor: "#1f2937" }, yaxis: { gridcolor: "#1f2937", range: [0, 1] },
+    margin: { t: 40, b: 40, l: 40, r: 10 }
+}, { responsive: true, displayModeBar: false });
+</script>
+{% else %}
+<p style="color:#64748b;">No evaluation data yet. Run <code>run_evaluation()</code> first.</p>
+{% endif %}
+</body>
+</html>

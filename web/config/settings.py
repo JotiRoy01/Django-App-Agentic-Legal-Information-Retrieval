@@ -15,10 +15,27 @@ import os
 import sys
 from dotenv import load_dotenv
 
+# Fix SSL_CERT_FILE if it is set to a non-existent POSIX-like path in Windows/Git Bash
+ssl_cert_file = os.environ.get("SSL_CERT_FILE")
+if ssl_cert_file:
+    if ssl_cert_file.startswith("/"):
+        import re
+        match = re.match(r"^/([a-zA-Z])/(.*)", ssl_cert_file)
+        if match:
+            ssl_cert_file = f"{match.group(1)}:\\{match.group(2)}".replace("/", "\\")
+            os.environ["SSL_CERT_FILE"] = ssl_cert_file
+    
+    if not Path(ssl_cert_file).exists():
+        try:
+            import certifi
+            os.environ["SSL_CERT_FILE"] = certifi.where()
+        except ImportError:
+            del os.environ["SSL_CERT_FILE"]
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Project root = Django-App-Agentic-Retrieval-Competition/
+# Project root = Django-App-Agentic-Legal-Information-Retrieval/
 PROJECT_ROOT = BASE_DIR.parent
 
 # Add src/ to sys.path so Django can import my ML modules directly
@@ -26,6 +43,8 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 # Environment
 load_dotenv(PROJECT_ROOT / "django_rag")
+
+NPM_BIN_PATH = r"C:\Program Files\nodejs\npm.cmd"
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -49,7 +68,15 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rag_web',
+    'tailwind',
+    'theme',
+    'django_browser_reload',
+    'django_celery_results',
+    'rest_framework',
 ]
+
+TAILWIND_APP_NAME = 'theme'
+INTERNAL_IPS = ['127.0.0.1']
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -59,6 +86,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "django_browser_reload.middleware.BrowserReloadMiddleware",
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -130,5 +158,51 @@ STATIC_URL = 'static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
+
+
+
+# ── Static files ───────────────────────────────────────────────────────────
+STATIC_URL  = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+ 
+# ── Celery ─────────────────────────────────────────────────────────────────
+# Redis as message broker — install Redis on Windows first
+# https://github.com/microsoftarchive/redis/releases
+CELERY_BROKER_URL         = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND     = "django-db"         # saves results to SQLite via django_celery_results
+CELERY_CACHE_BACKEND      = "default"
+CELERY_ACCEPT_CONTENT     = ["json"]
+CELERY_TASK_SERIALIZER    = "json"
+CELERY_RESULT_SERIALIZER  = "json"
+CELERY_TIMEZONE           = "UTC"
+CELERY_TASK_TRACK_STARTED = True                # enables STARTED state (for progress)
+ 
+# ── RAG Pipeline paths ─────────────────────────────────────────────────────
+# These tell Django where your ML artifacts live
+# Override in .env for your local machine paths
+# ARTIFACTS_DIR = Path(os.getenv(
+#     "ARTIFACTS_DIR",
+#     str(PROJECT_ROOT / "artifacts")
+# ))
+# DATA_DIR = Path(os.getenv(
+#     "DATA_DIR",
+#     str(PROJECT_ROOT / "data")
+# ))
+
+# ── RAG Pipeline ─────────────────────────────────────────
+# ARTIFACTS_DIR points to the ML project's artifacts folder
+# Adjust this path to match your machine
+ARTIFACTS_DIR = Path(os.getenv("ARTIFACTS_DIR", str(PROJECT_ROOT / "artifacts")))
+DATA_DIR      = Path(os.getenv("DATA_DIR", str(PROJECT_ROOT / "data")))
+
+# Pipeline settings — override in .env for CPU dev runs
+RAG_HYBRID_TOP_K         = int(os.getenv("RAG_HYBRID_TOP_K", "100"))
+RAG_RERANKER_TOP_K       = int(os.getenv("RAG_RERANKER_TOP_K", "10"))
+RAG_USE_STAGE2_RERANKER  = os.getenv("RAG_USE_STAGE2_RERANKER", "True") == "True"
+RAG_DEV_MODE             = os.getenv("RAG_DEV_MODE", "False") == "True"
+RAG_DEV_ROWS             = int(os.getenv("RAG_DEV_ROWS", "500"))
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

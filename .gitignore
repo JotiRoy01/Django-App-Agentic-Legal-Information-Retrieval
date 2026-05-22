@@ -219,3 +219,8 @@ __marimo__/
 django_rag/
 data/
 artifacts/
+.env
+.env/
+web\.env
+#D:\Develops\AI_PROJECT\Django-App-Agentic-Legal-Information-Retrieval\.gitignore
+D:\Develops\AI_PROJECT\Django-App-Agentic-Legal-Information-Retrieval\web\.env

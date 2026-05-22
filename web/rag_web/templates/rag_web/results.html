@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head><title>Results — Legal RAG</title>
+<style>
+body { font-family: sans-serif; max-width: 800px; margin: 40px auto; background: #0f172a; color: #e2e8f0; padding: 0 20px; }
+h1 { color: #818cf8; }
+a.back { color: #6366f1; text-decoration: none; font-size: 14px; }
+.card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 16px; margin: 10px 0; }
+.rank { background: #4338ca; color: white; border-radius: 50%; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; margin-right: 8px; }
+.badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; margin-left: 6px; }
+.law { background: #1e3a5f; color: #93c5fd; }
+.court { background: #3b1f5e; color: #d8b4fe; }
+.regex { background: #14532d; color: #86efac; }
+.score { float: right; color: #818cf8; font-weight: bold; }
+.meta { font-size: 12px; color: #64748b; margin-top: 8px; }
+.text { font-size: 12px; color: #94a3b8; margin-top: 6px; }
+.stats { display: flex; gap: 16px; margin: 20px 0; }
+.stat { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 12px 20px; text-align: center; }
+.stat .n { font-size: 24px; font-weight: bold; }
+</style>
+</head>
+<body>
+<a class="back" href="/">← New Query</a>
+<h1>Results</h1>
+<p style="color:#94a3b8;">{{ query_run.query_text }}</p>
+
+{% if query_run.is_complete %}
+<div class="stats">
+    <div class="stat"><div class="n" style="color:#e2e8f0">{{ citations|length }}</div><div style="font-size:12px;color:#64748b">Citations</div></div>
+    <div class="stat"><div class="n" style="color:#93c5fd">{{ n_law }}</div><div style="font-size:12px;color:#64748b">From Law</div></div>
+    <div class="stat"><div class="n" style="color:#d8b4fe">{{ n_court }}</div><div style="font-size:12px;color:#64748b">From Court</div></div>
+    <div class="stat"><div class="n" style="color:#86efac">{{ query_run.duration_display }}</div><div style="font-size:12px;color:#64748b">Time</div></div>
+</div>
+
+{% if query_run.expanded_query %}
+<div class="card" style="margin-bottom:20px;">
+    <div style="font-size:12px;color:#64748b;margin-bottom:4px;">Expanded Query</div>
+    <div style="font-size:13px;">{{ query_run.expanded_query }}</div>
+</div>
+{% endif %}
+
+{% for result in results_data %}
+<div class="card">
+    <span class="rank">{{ result.final_rank }}</span>
+    <strong>{{ result.citation }}</strong>
+    <span class="badge {{ result.source }}">{{ result.source }}</span>
+    {% if result.regex_match %}<span class="badge regex">regex match</span>{% endif %}
+    <span class="score">{{ result.final_score|floatformat:3 }}</span>
+    <div class="meta">
+        RRF: {{ result.rrf_score }}
+        {% if result.bm25_rank %} · BM25: #{{ result.bm25_rank }}{% endif %}
+        {% if result.law_faiss_rank %} · FAISS: #{{ result.law_faiss_rank }}{% endif %}
+    </div>
+    <div class="text">{{ result.text|truncatechars:200 }}</div>
+</div>
+{% endfor %}
+{% endif %}
+
+{% if query_run.is_failed %}
+<div style="background:#450a0a;border:1px solid #7f1d1d;border-radius:8px;padding:16px;color:#fca5a5;">
+    <strong>Pipeline Failed</strong><br>
+    <code style="font-size:12px;">{{ query_run.error_message|truncatechars:400 }}</code>
+</div>
+{% endif %}
+</body>
+</html>

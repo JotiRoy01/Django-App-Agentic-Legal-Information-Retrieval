@@ -27,7 +27,29 @@ python manage.py startapp rag_web
 ```
 # After initialize the models for DB
 ```bash
-python manage.py makemigrations
+python manage.py makemigrations rag_web
 python manage.py migrate
 ```
-
+# Run the tailwind
+```bash
+python manage.py tailwind start
+```
+# Run the celery
+```bash
+cd web
+celery -A config worker --loglevel=info --pool=solo
+```
+# Run the redis
+```bash
+# If installed as Windows service, start it:
+net start Redis
+```
+# Run the redis on the powersheel
+```bash
+docker start my-redis
+```
+# Activate conda environment in antigravity
+```bash
+source /c/anaconda3/etc/profile.d/conda.sh
+conda activate django_rag
+```

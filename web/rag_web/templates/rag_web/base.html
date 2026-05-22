@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-950">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}Legal RAG Dashboard{% endblock %}</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Plotly for charts -->
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 500: "#6366f1", 600: "#4f46e5", 700: "#4338ca" },
+          }
+        }
+      }
+    }
+  </script>
+</head>
+ 
+<body class="h-full text-gray-100 font-sans">
+ 
+  <!-- Sidebar -->
+  <div class="flex h-full">
+    <aside class="w-60 bg-gray-900 border-r border-gray-800 flex flex-col py-6 px-4 fixed h-full">
+      <!-- Logo -->
+      <div class="mb-8">
+        <span class="text-brand-500 font-bold text-xl">⚖ Legal RAG</span>
+        <p class="text-gray-500 text-xs mt-1">Swiss Law Retrieval System</p>
+      </div>
+ 
+      <!-- Nav -->
+      <nav class="flex flex-col gap-1 flex-1">
+        <a href="{% url 'index' %}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm
+                  {% if request.resolver_match.url_name == 'index' %}
+                    bg-brand-600 text-white
+                  {% else %}
+                    text-gray-400 hover:bg-gray-800 hover:text-white
+                  {% endif %}
+                  transition-colors">
+          <span>🔍</span> Query
+        </a>
+        <a href="{% url 'history' %}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm
+                  {% if request.resolver_match.url_name == 'history' %}
+                    bg-brand-600 text-white
+                  {% else %}
+                    text-gray-400 hover:bg-gray-800 hover:text-white
+                  {% endif %}
+                  transition-colors">
+          <span>📋</span> History
+        </a>
+        <a href="{% url 'evaluation' %}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm
+                  {% if request.resolver_match.url_name == 'evaluation' %}
+                    bg-brand-600 text-white
+                  {% else %}
+                    text-gray-400 hover:bg-gray-800 hover:text-white
+                  {% endif %}
+                  transition-colors">
+          <span>📊</span> Evaluation
+        </a>
+      </nav>
+ 
+      <!-- Pipeline status badge -->
+      <div class="mt-auto pt-4 border-t border-gray-800">
+        <p class="text-xs text-gray-500 mb-1">Pipeline</p>
+        {% if dev_mode %}
+          <span class="text-xs bg-yellow-900 text-yellow-300 px-2 py-1 rounded">DEV MODE</span>
+        {% else %}
+          <span class="text-xs bg-green-900 text-green-300 px-2 py-1 rounded">PRODUCTION</span>
+        {% endif %}
+      </div>
+    </aside>
+ 
+    <!-- Main content -->
+    <main class="ml-60 flex-1 p-8 overflow-auto">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+ 
+</body>
+</html>

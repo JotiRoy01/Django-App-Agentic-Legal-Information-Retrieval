@@ -3,7 +3,25 @@ import logging
 import time
 import json
 from pathlib import Path
+import os
 from datetime import datetime
+
+# Fix SSL_CERT_FILE if it is set to a non-existent POSIX-like path in Windows/Git Bash
+ssl_cert_file = os.environ.get("SSL_CERT_FILE")
+if ssl_cert_file:
+    if ssl_cert_file.startswith("/"):
+        import re
+        match = re.match(r"^/([a-zA-Z])/(.*)", ssl_cert_file)
+        if match:
+            ssl_cert_file = f"{match.group(1)}:\\{match.group(2)}".replace("/", "\\")
+            os.environ["SSL_CERT_FILE"] = ssl_cert_file
+    
+    if not Path(ssl_cert_file).exists():
+        try:
+            import certifi
+            os.environ["SSL_CERT_FILE"] = certifi.where()
+        except ImportError:
+            del os.environ["SSL_CERT_FILE"]
 from typing import Optional
 
 import pandas as pd
@@ -50,10 +68,28 @@ class RAGPipeline:
         dev_rows: int = 500
     ):
         try:
+            # Determine project root dynamically
+            current = Path(__file__).resolve()
+            project_root = None
+            while current != current.parent:
+                if (current / 'pyproject.toml').exists() or (current / 'README.md').exists():
+                    project_root = current
+                    break
+                current = current.parent
+            if project_root is None:
+                project_root = Path.cwd()
+
             self.hybrid_top_k         = hybrid_top_k
             self.reranker_top_k       = reranker_top_k
             self.use_stage2_reranker  = use_stage2_reranker
-            self.save_dir             = Path(save_dir)
+
+            # Resolve save_dir dynamically if it is a relative path
+            save_path = Path(save_dir)
+            if not save_path.is_absolute():
+                self.save_dir = project_root / save_path
+            else:
+                self.save_dir = save_path
+
             self.save_dir.mkdir(parents=True, exist_ok=True)
             self.dev_mode = dev_mode
             self.dev_rows = dev_rows
@@ -88,8 +124,8 @@ class RAGPipeline:
             logger.info("[1/4] Loading datasets...")
             # self.law_df   = load(filename="laws_de.csv")
             # self.court_df = load(filename="court_considerations.csv")
-            self.law_df   = pd.read_parquet("artifacts/chunks/laws_chunks.parquet")
-            self.court_df = pd.read_parquet("artifacts/chunks/court_chunks.parquet")
+            self.law_df   = pd.read_parquet(self.save_dir / "chunks" / "laws_chunks.parquet")
+            self.court_df = pd.read_parquet(self.save_dir / "chunks" / "court_chunks.parquet")
             self.val_df   = load(filename="val.csv")
 
             if self.dev_mode:

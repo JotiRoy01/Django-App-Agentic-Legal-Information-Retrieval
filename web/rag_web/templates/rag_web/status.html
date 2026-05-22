@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Running — Legal RAG</title>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 80px auto; background: #0f172a; color: #e2e8f0; }
+        h1 { color: #818cf8; }
+        .bar-bg { background: #1e293b; border-radius: 8px; height: 8px; margin: 16px 0; }
+        .bar { background: #4f46e5; height: 8px; border-radius: 8px; transition: width 0.5s; }
+        #step { color: #94a3b8; font-size: 14px; }
+        #error { background: #450a0a; border: 1px solid #7f1d1d; border-radius: 8px; padding: 12px; color: #fca5a5; margin-top: 16px; display: none; }
+    </style>
+</head>
+<body>
+    <h1>Pipeline Running...</h1>
+    <p style="color:#64748b;">{{ query_run.query_text|truncatechars:80 }}</p>
+    <p id="step">Initializing...</p>
+    <div class="bar-bg"><div class="bar" id="bar" style="width:5%"></div></div>
+    <div id="error"></div>
+    <p style="color:#334155;font-size:12px;">Task: {{ task_id }}</p>
+
+<script>
+const taskId = "{{ task_id }}";
+async function poll() {
+    const r = await fetch(`/status/${taskId}/`, {headers: {"Accept": "application/json"}});
+    const d = await r.json();
+    document.getElementById("step").textContent = d.step;
+    document.getElementById("bar").style.width = d.progress + "%";
+    if (d.status === "SUCCESS") { window.location.href = d.redirect; return; }
+    if (d.status === "FAILURE") {
+        document.getElementById("error").style.display = "block";
+        document.getElementById("error").textContent = "Error: " + d.error;
+        return;
+    }
+    setTimeout(poll, 2000);
+}
+poll();
+</script>
+</body>
+</html>
